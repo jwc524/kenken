@@ -1,18 +1,11 @@
 // src/app/page.tsx
-import { getDailyPuzzle } from "../lib/daily";
-import KenkenGame from "../components/KenkenGame";
+import { getDailyPuzzle } from '../lib/daily';
+import GameShell from '../components/GameShell';
 
-export const dynamic = 'force-dynamic'; // 👈 force SSR on every request
+export const dynamic = 'force-dynamic';
 
 export default function Home() {
-  const puzzle = getDailyPuzzle();
+  const puzzle = getDailyPuzzle(); // still returns a 4×4 for now
 
-  return (
-    <main className="game-shell page-fade">
-      <header>
-        <h1 className="game-title">Daily Kenken</h1>
-      </header>
-      <KenkenGame puzzle={puzzle} />
-    </main>
-  );
+  return <GameShell initialPuzzle={puzzle} />;
 }

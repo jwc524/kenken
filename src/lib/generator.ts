@@ -52,17 +52,12 @@ function makeLatinSquare(size: number): number[][] {
   return permuted;
 }
 
-/**
- * Step 2: carve the grid into contiguous cages of random size.
- * Medium-ish difficulty: cage sizes from 1–4, mostly 2–3.
- */
 function carveCagesFromSolution(solution: number[][]): Cage[] {
   const size = solution.length;
   const assigned: boolean[][] = Array.from({ length: size }, () =>
     Array.from({ length: size }, () => false)
   );
 
-  const cages: Cage[] = [];
   const dirs = [
     [1, 0],
     [-1, 0],
@@ -73,33 +68,30 @@ function carveCagesFromSolution(solution: number[][]): Cage[] {
   const inBounds = (r: number, c: number) =>
     r >= 0 && r < size && c >= 0 && c < size;
 
+  let cages: Cage[] = [];
   let nextIdCharCode = "A".charCodeAt(0);
 
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
       if (assigned[r][c]) continue;
 
-      const cells: { row: number; col: number }[] = [{ row: r, col: c }];
+      const cells = [{ row: r, col: c }];
       assigned[r][c] = true;
 
-      // decide desired cage size (1–4, but biased toward 2–3)
-      const maxCageSize = Math.min(4, size * size); // clamp
-      const randomSizeRoll = Math.random();
+      // --- decide target cage size (biased to 2–3) ---
+      const maxCageSize = Math.min(4, size * size);
+      const roll = Math.random();
       let targetSize = 1;
-      if (randomSizeRoll < 0.15) targetSize = 1;
-      else if (randomSizeRoll < 0.7) targetSize = 2;
-      else if (randomSizeRoll < 0.95) targetSize = 3;
+      if (roll < 0.15) targetSize = 1;
+      else if (roll < 0.7) targetSize = 2;
+      else if (roll < 0.95) targetSize = 3;
       else targetSize = 4;
+      targetSize = Math.min(targetSize, maxCageSize);
 
-      targetSize = Math.min(
-        targetSize,
-        maxCageSize,
-        size * size // safety
-      );
-
-      // grow cage by adding neighboring unassigned cells
+      // --- grow cage by adding neighboring unassigned cells ---
       while (cells.length < targetSize) {
         const frontier: { row: number; col: number }[] = [];
+
         for (const cell of cells) {
           for (const [dr, dc] of dirs) {
             const nr = cell.row + dr;
@@ -109,7 +101,9 @@ function carveCagesFromSolution(solution: number[][]): Cage[] {
             }
           }
         }
+
         if (frontier.length === 0) break;
+
         const choice = frontier[randInt(0, frontier.length - 1)];
         if (!assigned[choice.row][choice.col]) {
           cells.push(choice);
@@ -129,6 +123,55 @@ function carveCagesFromSolution(solution: number[][]): Cage[] {
         cells,
       });
     }
+  }
+
+  // ------------------------------------------------------
+  // POST-PROCESS: limit to at most 2 single-cell cages
+  // ------------------------------------------------------
+  const MAX_SINGLETONS = 2;
+
+  const isAdjacent = (
+    a: { row: number; col: number },
+    b: { row: number; col: number }
+  ) =>
+    (Math.abs(a.row - b.row) === 1 && a.col === b.col) ||
+    (Math.abs(a.col - b.col) === 1 && a.row === b.row);
+
+  const recomputeCage = (cage: Cage) => {
+    const vals = cage.cells.map((cell) => solution[cell.row][cell.col]);
+    const { op, target } = chooseOperationAndTarget(vals);
+    cage.op = op;
+    cage.target = target;
+  };
+
+  let singletons = cages.filter((c) => c.cells.length === 1);
+
+  // While there are more than MAX_SINGLETONS, merge extras into neighbors
+  while (singletons.length > MAX_SINGLETONS) {
+    const singleton = singletons.pop()!; // cage to remove
+    const [cell] = singleton.cells;
+
+    // find a neighboring cage to merge into
+    const neighbor = cages.find(
+      (c) =>
+        c !== singleton &&
+        c.cells.some((other) => isAdjacent(other, cell))
+    );
+
+    if (!neighbor) {
+      // no neighbor found — give up (rare in practice)
+      break;
+    }
+
+    // merge the singleton cell into the neighbor cage
+    neighbor.cells.push(cell);
+    recomputeCage(neighbor);
+
+    // remove the singleton cage from the list
+    cages = cages.filter((c) => c !== singleton);
+
+    // recompute singleton list
+    singletons = cages.filter((c) => c.cells.length === 1);
   }
 
   return cages;

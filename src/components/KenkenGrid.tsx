@@ -113,9 +113,7 @@ export default function KenkenGrid({
   return (
     <div
       className="kenken-grid"
-      style={{
-        gridTemplateColumns: `repeat(${size}, 1fr)`,
-      }}
+      style={{ ['--grid-size' as any]: puzzle.size }}
     >
       {Array.from({ length: size }).map((_, row) =>
         Array.from({ length: size }).map((_, col) => {
